@@ -8,6 +8,10 @@
     "0x1af6e16fe028811db1b074e962cdb69d13bfea8e5532a0d54a6a45ed1aab2ff2": {
       "name": "Test CA Alpha",
       "description": "E2E test CA certificate Alpha"
+    },
+    "0xc7f078a5b9f5f1680df7a9a84a6610e2a9d5a8b30ace6bd5a12509d309e6ce24": {
+      "name": "Test CA Beta",
+      "description": "E2E test CA certificate Beta"
     }
   }
 }
