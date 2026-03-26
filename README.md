@@ -1,45 +1,45 @@
 # zk-x509-ca-registry
 
-zk-X509 플랫폼에서 사용하는 CA 인증서 레지스트리입니다.
+CA certificate registry for the zk-X509 platform.
 
-각 서비스 관리자(admin)가 온체인 레지스트리에 등록한 CA 인증서의 원본(DER)과 메타데이터를 관리합니다. zk-X509 프로버와 프론트엔드는 이 저장소에서 CA 인증서와 서비스 정보를 가져옵니다.
+Service administrators manage DER-encoded CA certificates and metadata for their on-chain registries. The zk-X509 prover and frontend fetch CA certificates and service information from this repository.
 
-## 구조
+## Structure
 
 ```
 services/
-  {chainId}/                          # 체인 ID (예: 11155111 = Sepolia)
-    {registryAddress}/                # 레지스트리 컨트랙트 주소 (소문자 0x)
-      service.json                    # 서비스 메타데이터 + CA 안내
-      signature.json                  # 관리자 서명 (24시간 유효)
+  {chainId}/                          # Chain ID (e.g., 11155111 = Sepolia)
+    {registryAddress}/                # Registry contract address (lowercase 0x)
+      service.json                    # Service metadata + CA guides
+      signature.json                  # Admin signature (24h validity)
       certs/
-        0x{sha256_spki_hash}.der      # CA 인증서 (DER 형식)
+        0x{sha256_spki_hash}.der      # CA certificate (DER format)
 ```
 
-- **파일명 규칙**: DER 파일명 = `0x` + `SHA-256(SPKI DER)` 소문자 hex
-- **온체인 매칭**: 파일명의 해시가 온체인 `getCaLeaves()`의 값과 동일
-- **소문자 통일**: 모든 hex 값(주소, 해시)은 소문자 사용
+- **Filename convention**: DER filename = `0x` + `SHA-256(SPKI DER)` lowercase hex
+- **On-chain matching**: Filename hash matches on-chain `getCaLeaves()` values
+- **Lowercase convention**: All hex values (addresses, hashes) use lowercase
 
-## 동작 원리
+## How It Works
 
 ```
-온체인 컨트랙트                      이 저장소
+On-chain contract                    This repository
   getCaLeaves() → [hash1, hash2]     services/{chainId}/{addr}/certs/
-                                       0x{hash1}.der  ← 실제 인증서
+                                       0x{hash1}.der  ← actual certificate
                                        0x{hash2}.der
 
-프로버: 온체인 해시 → URL 결정적 → DER 다운로드 → SHA-256(SPKI) 검증
-프론트: service.json → 서비스 정보 + CA 발급 안내 표시
+Prover: on-chain hash → deterministic URL → download DER → verify SHA-256(SPKI)
+Frontend: service.json → display service info + CA issuance guides
 ```
 
-보안: 이 저장소는 **untrusted**입니다. 다운로드한 인증서의 `SHA-256(SPKI)`가 온체인 해시와 일치하는지 반드시 검증합니다.
+Security: This repository is **untrusted**. The prover always verifies that `SHA-256(SPKI)` of the downloaded certificate matches the on-chain hash.
 
-## service.json 형식
+## service.json Format
 
 ```json
 {
   "name": "DAO Voting Registry",
-  "description": "DAO 거버넌스를 위한 1인 1표 신원 인증",
+  "description": "One person, one vote identity verification for DAO governance",
   "admin": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
   "website": "https://mydao.org",
   "created_at": "2024-01-15",
@@ -47,49 +47,49 @@ services/
   "cas": {
     "0x28a2f0e0...abcd1234": {
       "name": "yessignCA Class 3",
-      "description": "한국 금융결제원 발급 은행 인증서 CA",
+      "description": "Korean banking certificate CA issued by KFTC",
       "issue_url": "https://www.yessign.or.kr",
-      "instructions": "은행 지점을 방문하여 공동인증서를 발급받으세요."
+      "instructions": "Visit your bank branch to obtain an NPKI certificate."
     }
   }
 }
 ```
 
-| 필드 | 필수 | 설명 |
-|------|------|------|
-| `name` | O | 서비스 이름 (최대 100자) |
-| `description` | O | 서비스 설명 (최대 500자) |
-| `admin` | O | 관리자 Ethereum 주소 (`0x` + 40 hex) |
-| `website` | X | 서비스 웹사이트 URL |
-| `created_at` | O | 생성일 (YYYY-MM-DD) — 불변 필드 |
-| `updated_at` | O | 최종 수정일 (YYYY-MM-DD) |
-| `cas` | O | CA 목록 (키: `0x` + SHA-256(SPKI) 64 hex) |
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Service name (max 100 chars) |
+| `description` | Yes | Service description (max 500 chars) |
+| `admin` | Yes | Admin Ethereum address (`0x` + 40 hex) |
+| `website` | No | Service website URL |
+| `created_at` | Yes | Creation date (YYYY-MM-DD) — immutable field |
+| `updated_at` | Yes | Last update date (YYYY-MM-DD) |
+| `cas` | Yes | CA entries (key: `0x` + SHA-256(SPKI) 64 hex) |
 
-**불변 필드**: `admin`, `created_at`은 등록 후 변경할 수 없습니다.
+**Immutable fields**: `admin` and `created_at` cannot be changed after registration.
 
 ## Admin CLI
 
-관리자 도구를 사용하여 서비스를 등록하고 CA를 관리할 수 있습니다.
+Use the admin CLI tool to register services and manage CA certificates.
 
-### 설치
+### Installation
 
 ```bash
 pip install -r scripts/requirements.txt
 ```
 
-### 새 서비스 등록
+### Register a New Service
 
 ```bash
 python scripts/admin.py init \
   --chain-id 11155111 \
   --registry 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 \
   --name "My DAO Voting" \
-  --description "DAO 거버넌스를 위한 신원 인증 서비스" \
+  --description "Identity verification service for DAO governance" \
   --admin 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 \
   --website "https://mydao.org"
 ```
 
-### CA 인증서 추가
+### Add a CA Certificate
 
 ```bash
 python scripts/admin.py add-ca \
@@ -97,18 +97,18 @@ python scripts/admin.py add-ca \
   --registry 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 \
   --cert /path/to/ca-certificate.der \
   --name "yessignCA Class 3" \
-  --description "한국 금융결제원 발급 CA" \
+  --description "Korean banking CA issued by KFTC" \
   --issue-url "https://www.yessign.or.kr" \
-  --instructions "은행 지점을 방문하여 공동인증서를 발급받으세요."
+  --instructions "Visit your bank branch to obtain a certificate."
 ```
 
-이 명령은 자동으로:
-1. DER 인증서를 X.509로 파싱 (만료 확인)
-2. `SHA-256(SPKI)` 해시를 계산하여 파일명 생성
-3. `certs/` 디렉토리에 복사
-4. `service.json`의 `cas`에 항목 추가
+This command automatically:
+1. Parses the DER certificate as X.509 (checks expiry)
+2. Computes `SHA-256(SPKI)` hash for the filename
+3. Copies to the `certs/` directory
+4. Adds entry to `service.json` `cas`
 
-### CA 인증서 제거
+### Remove a CA Certificate
 
 ```bash
 python scripts/admin.py remove-ca \
@@ -117,31 +117,31 @@ python scripts/admin.py remove-ca \
   --hash 0x28a2f0e0abcd1234...
 ```
 
-### 서비스 목록 조회
+### List Services
 
 ```bash
-# 전체 서비스 목록
+# List all services
 python scripts/admin.py list
 
-# 특정 서비스의 CA 목록 + 서명 상태
+# List CAs in a specific service + signature status
 python scripts/admin.py list \
   --chain-id 11155111 \
   --registry 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512
 ```
 
-## 관리자 서명 검증
+## Admin Signature Verification
 
-PR 제출 시 관리자 신원을 Ethereum 주소 서명으로 검증합니다.
+Admin identity is verified via Ethereum address signatures when submitting PRs.
 
-### 서명 구조
+### Signature Design
 
-`tokamak-rollup-metadata-repository`와 동일한 패턴을 따릅니다:
-- **구조화된 메시지**: chain ID, registry, admin, operation, timestamp 포함
-- **24시간 만료**: 서명 후 24시간 내에 PR이 머지되어야 함
-- **Operation 타입**: register, add-ca, remove-ca, update
-- **리플레이 방지**: Unix timestamp로 동일 서명 재사용 방지
+Follows the same pattern as `tokamak-rollup-metadata-repository`:
+- **Structured message**: includes chain ID, registry, admin, operation, timestamp
+- **24-hour expiry**: PR must be merged within 24 hours of signing
+- **Operation type**: register, add-ca, remove-ca, update
+- **Replay prevention**: Unix timestamp prevents signature reuse
 
-### 서명 생성
+### Create Signature
 
 ```bash
 python scripts/admin.py sign \
@@ -151,7 +151,7 @@ python scripts/admin.py sign \
   --operation register    # register | add-ca | remove-ca | update
 ```
 
-생성되는 `signature.json`:
+Generated `signature.json`:
 
 ```json
 {
@@ -164,7 +164,7 @@ python scripts/admin.py sign \
 }
 ```
 
-### 서명 검증
+### Verify Signature
 
 ```bash
 python scripts/admin.py verify \
@@ -172,71 +172,71 @@ python scripts/admin.py verify \
   --registry 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512
 ```
 
-검증 항목:
-1. 서명에서 복원된 주소 == service.json의 `admin` 주소
-2. 서명 메시지 형식 일치
-3. 서명 후 24시간 이내인지 확인
-4. 미래 타임스탬프 거부
+Verification checks:
+1. Recovered address from signature == `admin` address in service.json
+2. Signed message matches expected structured format
+3. Signature is within 24-hour validity window
+4. Rejects future timestamps
 
-## PR 제출 방법
+## Submitting a PR
 
-### PR 제목 형식
+### PR Title Format
 
-| Operation | PR 제목 형식 | 예시 |
-|-----------|-------------|------|
-| 서비스 등록 | `[Register] {chainId} {0xAddr} - {name}` | `[Register] 11155111 0xe7f1...0512 - My DAO` |
-| CA 추가 | `[AddCA] {chainId} {0xAddr} - {caName}` | `[AddCA] 11155111 0xe7f1...0512 - yessignCA` |
-| CA 제거 | `[RemoveCA] {chainId} {0xAddr} - {caName}` | `[RemoveCA] 11155111 0xe7f1...0512 - Old CA` |
-| 정보 수정 | `[Update] {chainId} {0xAddr} - {name}` | `[Update] 11155111 0xe7f1...0512 - My DAO` |
+| Operation | PR Title Format | Example |
+|-----------|----------------|---------|
+| Register service | `[Register] {chainId} {0xAddr} - {name}` | `[Register] 11155111 0xe7f1...0512 - My DAO` |
+| Add CA | `[AddCA] {chainId} {0xAddr} - {caName}` | `[AddCA] 11155111 0xe7f1...0512 - yessignCA` |
+| Remove CA | `[RemoveCA] {chainId} {0xAddr} - {caName}` | `[RemoveCA] 11155111 0xe7f1...0512 - Old CA` |
+| Update info | `[Update] {chainId} {0xAddr} - {name}` | `[Update] 11155111 0xe7f1...0512 - My DAO` |
 
-### 1. 새 서비스 등록
+### 1. Register a New Service
 
-**사전 조건**: 온체인 레지스트리 컨트랙트를 배포하고 `addCA()`로 CA를 등록한 상태
+**Prerequisite**: Deploy the registry contract on-chain and register CAs via `addCA()`
 
 ```bash
-# 1. 저장소 Fork & Clone
+# 1. Fork & Clone
 git clone https://github.com/YOUR_USERNAME/zk-x509-ca-registry.git
 cd zk-x509-ca-registry
 
-# 2. 의존성 설치
+# 2. Install dependencies
 pip install -r scripts/requirements.txt
 
-# 3. 브랜치 생성
+# 3. Create branch
 git checkout -b register/my-dao-voting
 
-# 4. 서비스 초기화
+# 4. Initialize service
 python scripts/admin.py init \
   --chain-id 11155111 \
   --registry 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 \
   --name "My DAO Voting" \
-  --description "DAO 거버넌스 신원 인증" \
+  --description "Identity verification for DAO governance" \
   --admin 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 
-# 5. CA 인증서 추가 (온체인에 등록한 각 CA마다)
+# 5. Add CA certificates (for each CA registered on-chain)
 python scripts/admin.py add-ca \
   --chain-id 11155111 \
   --registry 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 \
   --cert ~/certs/yessign-ca.der \
   --name "yessignCA Class 3" \
-  --description "한국 금융결제원 은행 인증서 CA"
+  --description "Korean banking CA"
 
-# 6. 관리자 서명 (24시간 유효 — PR 머지 전에 서명)
+# 6. Sign as admin (valid for 24 hours — sign just before PR submission)
 python scripts/admin.py sign \
   --chain-id 11155111 \
   --registry 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 \
   --private-key $ADMIN_PRIVATE_KEY \
   --operation register
 
-# 7. 커밋 & PR 제출
+# 7. Commit & push
 git add services/
 git commit -m "Register service: My DAO Voting (Sepolia)"
 git push origin register/my-dao-voting
 
-# 8. GitHub에서 PR 생성
-#    제목: [Register] 11155111 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 - My DAO Voting
+# 8. Create PR on GitHub
+#    Title: [Register] 11155111 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 - My DAO Voting
 ```
 
-### 2. CA 추가
+### 2. Add a CA
 
 ```bash
 git checkout -b add-ca/yessign-class3
@@ -256,10 +256,10 @@ python scripts/admin.py sign \
 git add services/
 git commit -m "Add CA: New CA Name"
 git push origin add-ca/yessign-class3
-# PR 제목: [AddCA] 11155111 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 - New CA Name
+# PR title: [AddCA] 11155111 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 - New CA Name
 ```
 
-### 3. CA 제거
+### 3. Remove a CA
 
 ```bash
 git checkout -b remove-ca/old-ca
@@ -278,15 +278,15 @@ python scripts/admin.py sign \
 git add services/
 git commit -m "Remove CA: Old CA Name"
 git push origin remove-ca/old-ca
-# PR 제목: [RemoveCA] 11155111 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 - Old CA Name
+# PR title: [RemoveCA] 11155111 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 - Old CA Name
 ```
 
-### 4. 서비스 정보 수정
+### 4. Update Service Info
 
 ```bash
 git checkout -b update/description
-# service.json 편집 (name, description, website, CA instructions 등)
-# 주의: admin, created_at은 불변 필드이므로 수정 불가
+# Edit service.json (name, description, website, CA instructions, etc.)
+# Note: admin and created_at are immutable and cannot be changed
 
 python scripts/admin.py sign \
   --chain-id 11155111 \
@@ -297,39 +297,39 @@ python scripts/admin.py sign \
 git add services/
 git commit -m "Update service info"
 git push origin update/description
-# PR 제목: [Update] 11155111 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 - My DAO Voting
+# PR title: [Update] 11155111 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 - My DAO Voting
 ```
 
-## CI 검증 (7-Layer Validation)
+## CI Validation (7-Layer)
 
-`services/` 하위 파일이 변경된 PR에 대해 자동으로 실행됩니다:
+Runs automatically on PRs that modify files under `services/`:
 
-| Layer | 검증 | 설명 |
-|-------|------|------|
-| 1 | **PR Scope** | 하나의 서비스 디렉토리만 수정했는지 |
-| 2 | **PR Title** | `[Register\|AddCA\|RemoveCA\|Update] {chainId} {addr} - {name}` 형식 |
-| 3 | **DER Certificate** | X.509 파싱, SPKI 해시 일치, 만료, CA 여부 |
-| 4 | **service.json** | JSON 스키마, cas ↔ certs 교차 참조 |
-| 5 | **Signature** | Ethereum 서명 복원, admin 일치, 24시간 만료 |
-| 6 | **Immutable Fields** | 업데이트 시 admin, created_at 변경 불가 |
-| 7 | **Operation** | PR 제목의 operation과 실제 변경사항 일치 |
+| Layer | Check | Description |
+|-------|-------|-------------|
+| 1 | **PR Scope** | Only one service directory modified per PR |
+| 2 | **PR Title** | `[Register\|AddCA\|RemoveCA\|Update] {chainId} {addr} - {name}` format |
+| 3 | **DER Certificate** | X.509 parsing, SPKI hash match, expiry, CA flag |
+| 4 | **service.json** | JSON schema validation, cas ↔ certs cross-reference |
+| 5 | **Signature** | Ethereum signature recovery, admin match, 24h expiry |
+| 6 | **Immutable Fields** | Blocks changes to admin, created_at on updates |
+| 7 | **Operation Consistency** | PR title operation matches actual file changes |
 
-**검증 통과 시**: PR이 자동으로 squash merge 됩니다.
+**On validation pass**: PR is automatically squash-merged.
 
-## 보안 모델
+## Security Model
 
-| 위협 | 대응 |
-|------|------|
-| 저장소에서 잘못된 인증서 제공 | 프로버가 `SHA-256(SPKI) == 온체인 해시` 검증 |
-| 저장소 접속 불가 | 로컬 캐시에서 이전에 검증된 인증서 사용 |
-| 중간자 공격 | 해시 검증으로 변조 감지 |
-| 관리자 사칭 PR | Ethereum 주소 서명 검증 (24시간 만료) |
-| 서명 리플레이 공격 | Unix timestamp + operation 타입으로 방지 |
-| 불변 필드 변조 | CI에서 base 브랜치와 비교하여 변경 감지 |
-| 여러 서비스 동시 수정 | PR scope check (1 디렉토리만 허용) |
-| 악성 DER 파일 | 10KB 초과 시 거부 (에러) + X.509 파싱 검증 |
-| 만료 인증서 등록 | 만료일 검증 (90일 이내 경고) |
+| Threat | Mitigation |
+|--------|-----------|
+| Repository serves wrong certificate | Prover verifies `SHA-256(SPKI) == on-chain hash` |
+| Repository unavailable | Local cache serves previously verified certificates |
+| Man-in-the-middle attack | Hash verification detects any modification |
+| Admin impersonation PR | Ethereum address signature verification (24h expiry) |
+| Signature replay attack | Unix timestamp + operation type prevents reuse |
+| Immutable field tampering | CI compares against base branch to detect changes |
+| Multi-service modification | PR scope check (only 1 directory allowed) |
+| Malicious DER file | Rejected if >10KB + X.509 parsing validation |
+| Expired certificate registration | Expiry date validation (warning at <90 days) |
 
-## 라이선스
+## License
 
 MIT
