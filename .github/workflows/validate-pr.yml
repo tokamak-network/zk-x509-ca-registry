@@ -1,22 +1,31 @@
 name: Validate Service PR
 
+# Security: Use pull_request_target to run validator code from the base branch
+# (main), not from the PR branch. This prevents a malicious PR from modifying
+# validate.py to execute arbitrary code with write-capable credentials.
 on:
-  pull_request:
+  pull_request_target:
     paths: ['services/**']
 
 permissions:
   pull-requests: write
-  contents: write
+  contents: read
 
 jobs:
   validate:
     name: Validate CA Registry Data
     runs-on: ubuntu-latest
-    # Only run when services/ data files are changed, not for code-only PRs
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout base branch (trusted code)
+        uses: actions/checkout@v4
         with:
+          ref: ${{ github.base_ref }}
           fetch-depth: 0
+
+      - name: Fetch PR head for diff
+        run: |
+          git fetch origin pull/${{ github.event.pull_request.number }}/head:pr-head
+          git checkout pr-head -- services/
 
       - uses: actions/setup-python@v5
         with:
@@ -28,7 +37,7 @@ jobs:
       - name: Get changed service files
         id: changes
         run: |
-          FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- services/)
+          FILES=$(git diff --name-only origin/${{ github.base_ref }}...pr-head -- services/)
           if [ -z "$FILES" ]; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
             echo "No service file changes detected"
@@ -50,7 +59,6 @@ jobs:
             --pr-title "${{ github.event.pull_request.title }}" \
             --base-ref "origin/${{ github.base_ref }}" \
             --output report.md
-        continue-on-error: true
 
       - name: Post validation report
         if: steps.changes.outputs.has_changes == 'true' && always()
@@ -59,7 +67,15 @@ jobs:
           script: |
             const fs = require('fs');
             if (!fs.existsSync('report.md')) {
-              console.log('No report generated');
+              // Validation crashed without producing a report — post failure
+              const fallback = '## CA Registry Validation ❌\n\n' +
+                'Validation script failed to produce a report. Check workflow logs.';
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: fallback,
+              });
               return;
             }
             const report = fs.readFileSync('report.md', 'utf8');
@@ -91,9 +107,14 @@ jobs:
             }
 
       - name: Check validation result
-        if: steps.changes.outputs.has_changes == 'true' && always()
+        if: steps.changes.outputs.has_changes == 'true'
         run: |
-          if [[ -f report.md ]] && grep -q "❌" report.md; then
+          # Fail if validate.py exited non-zero OR report contains errors
+          if [[ ! -f report.md ]]; then
+            echo "::error::Validation failed — no report generated"
+            exit 1
+          fi
+          if grep -q "❌" report.md; then
             echo "::error::Validation failed — see PR comment for details"
             exit 1
           fi
@@ -103,6 +124,9 @@ jobs:
     needs: validate
     runs-on: ubuntu-latest
     if: success()
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Auto-merge PR
         uses: actions/github-script@v7
@@ -110,7 +134,7 @@ jobs:
           script: |
             const pr = context.payload.pull_request;
 
-            // Double-check: only auto-merge if PR title matches service operations
+            // Only auto-merge if PR title matches service operations
             const serviceOps = /^\[(Register|AddCA|RemoveCA|Update)\]/;
             if (!serviceOps.test(pr.title)) {
               console.log(`Skipping auto-merge: PR title "${pr.title}" is not a service operation`);

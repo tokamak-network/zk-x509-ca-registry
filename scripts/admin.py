@@ -17,6 +17,7 @@ Signature format follows tokamak-rollup-metadata-repository pattern:
 """
 
 import argparse
+import binascii
 import hashlib
 import json
 import re
@@ -28,6 +29,7 @@ from pathlib import Path
 
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec, rsa
 
 
 REPO_ROOT = Path(__file__).parent.parent
@@ -62,7 +64,6 @@ def get_cert_info(cert_der_bytes: bytes) -> dict:
     cert = x509.load_der_x509_certificate(cert_der_bytes)
     pub_key = cert.public_key()
 
-    from cryptography.hazmat.primitives.asymmetric import ec, rsa
     if isinstance(pub_key, rsa.RSAPublicKey):
         algorithm = f"RSA-{pub_key.key_size}"
     elif isinstance(pub_key, ec.EllipticCurvePublicKey):
@@ -95,6 +96,15 @@ def build_sign_message(
         f"Operation: {operation}\n"
         f"Timestamp: {timestamp}"
     )
+
+
+def safe_parse_timestamp(sig_data: dict) -> int | None:
+    """Safely parse timestamp from signature data, returns None on failure."""
+    raw = sig_data.get("timestamp", None)
+    try:
+        return int(raw) if raw is not None else None
+    except (TypeError, ValueError):
+        return None
 
 
 # ─── init ────────────────────────────────────────────────────────────────────
@@ -165,7 +175,7 @@ def cmd_add_ca(args):
     # Validate it's a valid X.509
     try:
         cert_info = get_cert_info(cert_der)
-    except Exception as e:
+    except ValueError as e:
         print(f"Error: Invalid X.509 DER certificate: {e}")
         sys.exit(1)
 
@@ -287,7 +297,12 @@ def cmd_sign(args):
     admin_address = service.get("admin", "").lower()
 
     # Derive signer address from private key
-    account = Account.from_key(args.private_key)
+    try:
+        account = Account.from_key(args.private_key)
+    except (ValueError, binascii.Error) as e:
+        print(f"Error: Invalid private key: {e}")
+        sys.exit(1)
+
     signer_address = account.address.lower()
 
     if signer_address != admin_address:
@@ -365,8 +380,16 @@ def cmd_verify(args):
         print(f"❌ Signer {claimed_address} != admin {admin_address}")
         sys.exit(1)
 
+    # Validate and coerce timestamp
+    sig_timestamp = safe_parse_timestamp(sig_data)
+    if sig_timestamp is None:
+        print(
+            f"Error: Invalid 'timestamp' in signature.json: "
+            f"expected integer UNIX timestamp, got {sig_data.get('timestamp')!r}"
+        )
+        sys.exit(1)
+
     # Check expiry
-    sig_timestamp = sig_data.get("timestamp", 0)
     now = int(time.time())
     age = now - sig_timestamp
 
@@ -409,7 +432,6 @@ def cmd_verify(args):
 def cmd_list(args):
     """List all services or CAs in a service."""
     if args.chain_id and args.registry:
-        # List CAs in a specific service
         sdir = get_service_dir(args.chain_id, args.registry)
         svc_path = sdir / "service.json"
         if not svc_path.exists():
@@ -433,14 +455,17 @@ def cmd_list(args):
         sig_path = sdir / "signature.json"
         if sig_path.exists():
             sig_data = json.loads(sig_path.read_text())
-            age = int(time.time()) - sig_data.get("timestamp", 0)
-            expired = age > SIGNATURE_EXPIRY_SECONDS
-            status = "❌ expired" if expired else "✅ valid"
+            ts = safe_parse_timestamp(sig_data)
+            if ts is not None:
+                age = int(time.time()) - ts
+                expired = age > SIGNATURE_EXPIRY_SECONDS
+                status = "❌ expired" if expired else "✅ valid"
+            else:
+                status = "⚠️ invalid timestamp"
             print(f"\nSignature: {status} (op: {sig_data.get('operation', '?')})")
         else:
             print(f"\nSignature: ⚠️  not signed")
     else:
-        # List all services
         if not SERVICES_DIR.exists():
             print("No services registered yet.")
             return
@@ -477,7 +502,6 @@ def main():
     )
     subparsers = parser.add_subparsers(dest="command", help="Command")
 
-    # init
     p_init = subparsers.add_parser("init", help="Initialize a new service")
     p_init.add_argument("--chain-id", required=True, help="Chain ID (e.g., 11155111)")
     p_init.add_argument("--registry", required=True, help="Registry contract address (0x...)")
@@ -486,7 +510,6 @@ def main():
     p_init.add_argument("--admin", required=True, help="Admin Ethereum address (0x...)")
     p_init.add_argument("--website", help="Service website URL")
 
-    # add-ca
     p_add = subparsers.add_parser("add-ca", help="Add a CA certificate")
     p_add.add_argument("--chain-id", required=True, help="Chain ID")
     p_add.add_argument("--registry", required=True, help="Registry contract address")
@@ -496,13 +519,11 @@ def main():
     p_add.add_argument("--issue-url", help="URL to obtain a certificate")
     p_add.add_argument("--instructions", help="Instructions for users")
 
-    # remove-ca
     p_rm = subparsers.add_parser("remove-ca", help="Remove a CA certificate")
     p_rm.add_argument("--chain-id", required=True, help="Chain ID")
     p_rm.add_argument("--registry", required=True, help="Registry contract address")
     p_rm.add_argument("--hash", required=True, help="CA SPKI hash to remove (0x...)")
 
-    # sign
     p_sign = subparsers.add_parser("sign", help="Sign to prove admin identity")
     p_sign.add_argument("--chain-id", required=True, help="Chain ID")
     p_sign.add_argument("--registry", required=True, help="Registry contract address")
@@ -512,12 +533,10 @@ def main():
         help="Operation type: register, add-ca, remove-ca, update",
     )
 
-    # verify
     p_verify = subparsers.add_parser("verify", help="Verify admin signature")
     p_verify.add_argument("--chain-id", required=True, help="Chain ID")
     p_verify.add_argument("--registry", required=True, help="Registry contract address")
 
-    # list
     p_list = subparsers.add_parser("list", help="List services or CAs")
     p_list.add_argument("--chain-id", help="Chain ID (omit to list all)")
     p_list.add_argument("--registry", help="Registry contract address")

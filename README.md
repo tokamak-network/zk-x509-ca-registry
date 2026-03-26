@@ -42,8 +42,8 @@ services/
   "description": "DAO 거버넌스를 위한 1인 1표 신원 인증",
   "admin": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
   "website": "https://mydao.org",
-  "created_at": "2026-03-26",
-  "updated_at": "2026-03-26",
+  "created_at": "2024-01-15",
+  "updated_at": "2024-01-15",
   "cas": {
     "0x28a2f0e0...abcd1234": {
       "name": "yessignCA Class 3",
@@ -160,7 +160,7 @@ python scripts/admin.py sign \
   "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
   "operation": "register",
   "timestamp": 1711425600,
-  "signed_at": "2026-03-26T05:00:00+00:00"
+  "signed_at": "2024-01-15T12:00:00+00:00"
 }
 ```
 
@@ -327,7 +327,7 @@ git push origin update/description
 | 서명 리플레이 공격 | Unix timestamp + operation 타입으로 방지 |
 | 불변 필드 변조 | CI에서 base 브랜치와 비교하여 변경 감지 |
 | 여러 서비스 동시 수정 | PR scope check (1 디렉토리만 허용) |
-| 악성 DER 파일 | 10KB 크기 제한 + X.509 파싱 검증 |
+| 악성 DER 파일 | 10KB 초과 시 거부 (에러) + X.509 파싱 검증 |
 | 만료 인증서 등록 | 만료일 검증 (90일 이내 경고) |
 
 ## 라이선스

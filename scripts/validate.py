@@ -7,7 +7,8 @@ Validation layers (modeled after tokamak-rollup-metadata-repository):
   2. PR title validation — [Register], [AddCA], [RemoveCA], [Update] format
   3. DER certificate validation — X.509 parsing, SPKI hash, expiry, CA check
   4. service.json schema validation — JSON schema + cross-reference certs
-  5. Signature verification — Ethereum signature with 24h expiry, operation type
+  5. Signature verification — Ethereum signature with 24h expiry, operation type,
+     message format binding (timestamp in signed message must match metadata)
   6. Immutable field protection — admin, created_at cannot change on updates
   7. Operation consistency — PR title operation matches actual file changes
 
@@ -20,6 +21,7 @@ import argparse
 import hashlib
 import json
 import re
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -28,6 +30,8 @@ from pathlib import Path
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
+from eth_account import Account
+from eth_account.messages import encode_defunct
 import jsonschema
 
 
@@ -50,6 +54,21 @@ PR_TITLE_PATTERNS = {
         r"^\[Update\]\s+(\d+)\s+(0x[0-9a-fA-F]{40})\s+-\s+(.+)$"
     ),
 }
+
+
+def build_expected_message(
+    chain_id: str, registry: str, admin: str,
+    operation: str, timestamp: int,
+) -> str:
+    """Build the expected structured sign message for verification."""
+    return (
+        f"zk-x509-ca-registry\n"
+        f"Chain ID: {chain_id}\n"
+        f"Registry: {registry.lower()}\n"
+        f"Admin: {admin.lower()}\n"
+        f"Operation: {operation}\n"
+        f"Timestamp: {timestamp}"
+    )
 
 
 # ─── Layer 1: PR Scope ──────────────────────────────────────────────────────
@@ -129,14 +148,16 @@ def validate_der(filepath: Path) -> dict:
         result["errors"].append(f"Cannot read file: {e}")
         return result
 
-    # Size check
+    # Size check — enforce as error (security: prevent oversized DER)
     if len(der_bytes) > MAX_DER_SIZE:
-        result["warnings"].append(f"Large file: {len(der_bytes)} bytes")
+        result["errors"].append(
+            f"DER too large: {len(der_bytes)} bytes (max {MAX_DER_SIZE} bytes)"
+        )
 
     # Parse X.509
     try:
         cert = x509.load_der_x509_certificate(der_bytes)
-    except Exception as e:
+    except ValueError as e:
         result["errors"].append(f"Invalid X.509 DER: {e}")
         return result
 
@@ -243,15 +264,16 @@ def validate_service_json(filepath: Path, certs_dir: Path) -> dict:
 # ─── Layer 5: Signature Verification ────────────────────────────────────────
 
 
-def validate_signature(service_dir: Path) -> dict:
-    """Validate admin signature with 24h expiry and operation type."""
+def validate_signature(service_dir: Path, operation: str | None) -> dict:
+    """Validate admin signature with 24h expiry, operation type, and message binding."""
     result = {"errors": [], "warnings": [], "verified": False, "info": {}}
 
     sig_file = service_dir / "signature.json"
     svc_file = service_dir / "service.json"
 
     if not sig_file.exists():
-        result["warnings"].append("No signature.json — admin identity not verified")
+        # Missing signature is an error — admin identity must be verified
+        result["errors"].append("No signature.json — admin identity not verified")
         return result
 
     if not svc_file.exists():
@@ -285,8 +307,18 @@ def validate_signature(service_dir: Path) -> dict:
         )
         return result
 
+    # Validate and coerce timestamp
+    try:
+        sig_timestamp = int(sig_data["timestamp"])
+    except (TypeError, ValueError):
+        result["errors"].append("Invalid signature timestamp: must be an integer")
+        return result
+
+    if sig_timestamp < 0:
+        result["errors"].append("Invalid signature timestamp: must be non-negative")
+        return result
+
     # Verify signature not expired (24 hours)
-    sig_timestamp = sig_data.get("timestamp", 0)
     now = int(time.time())
     age = now - sig_timestamp
 
@@ -301,11 +333,27 @@ def validate_signature(service_dir: Path) -> dict:
         result["errors"].append("Signature timestamp is in the future")
         return result
 
+    # Verify message format binding — the signed message must match the
+    # expected structured format built from the metadata fields.
+    # This prevents timestamp/operation tampering without re-signing.
+    sdir_parts = str(service_dir).split("/")
+    # Extract chain_id and registry from path: services/{chainId}/{registry}
+    chain_id = sdir_parts[-2] if len(sdir_parts) >= 2 else "?"
+    registry = sdir_parts[-1] if len(sdir_parts) >= 1 else "?"
+
+    expected_message = build_expected_message(
+        chain_id, registry, admin_address,
+        sig_data["operation"], sig_timestamp,
+    )
+    if sig_data["message"] != expected_message:
+        result["errors"].append(
+            "Signature message mismatch: signed message does not match "
+            "expected format (chain_id/registry/admin/operation/timestamp)"
+        )
+        return result
+
     # Verify Ethereum signature
     try:
-        from eth_account.messages import encode_defunct
-        from eth_account import Account
-
         message = encode_defunct(text=sig_data["message"])
         signature_hex = sig_data["signature"]
         if not signature_hex.startswith("0x"):
@@ -322,10 +370,6 @@ def validate_signature(service_dir: Path) -> dict:
             )
         else:
             result["verified"] = True
-    except ImportError:
-        result["warnings"].append(
-            "eth-account not installed — skipping signature verification"
-        )
     except Exception as e:
         result["errors"].append(f"Signature verification failed: {e}")
 
@@ -356,9 +400,6 @@ def validate_immutable_fields(
     except json.JSONDecodeError:
         return result
 
-    # Try to read the base version via git
-    import subprocess
-
     rel_path = svc_file
     try:
         old_content = subprocess.run(
@@ -366,7 +407,6 @@ def validate_immutable_fields(
             capture_output=True, text=True, timeout=10,
         )
         if old_content.returncode != 0:
-            # File doesn't exist in base — this is a new registration, skip
             return result
         old_data = json.loads(old_content.stdout)
     except (subprocess.TimeoutExpired, json.JSONDecodeError):
@@ -384,6 +424,57 @@ def validate_immutable_fields(
     return result
 
 
+# ─── Layer 7: Operation Consistency ──────────────────────────────────────────
+
+
+def validate_operation_consistency(
+    operation: str | None,
+    changed_files: list[str],
+    service_dir: str,
+    base_ref: str | None,
+) -> dict:
+    """Validate PR title operation matches actual file changes."""
+    result = {"errors": [], "warnings": []}
+
+    if not operation:
+        return result
+
+    svc_json_path = f"{service_dir}/service.json"
+    cert_files = [f for f in changed_files if f.startswith(f"{service_dir}/certs/")]
+
+    # Check if service.json exists in base (determines register vs update)
+    is_new_service = True
+    if base_ref:
+        try:
+            check = subprocess.run(
+                ["git", "cat-file", "-e", f"{base_ref}:{svc_json_path}"],
+                capture_output=True, timeout=10,
+            )
+            is_new_service = check.returncode != 0
+        except subprocess.TimeoutExpired:
+            pass
+
+    if operation == "register":
+        if not is_new_service:
+            result["errors"].append(
+                "Operation is [Register] but service.json already exists in main. "
+                "Use [Update], [AddCA], or [RemoveCA] instead."
+            )
+    elif operation in ("add-ca", "remove-ca", "update"):
+        if is_new_service:
+            result["errors"].append(
+                f"Operation is [{operation}] but service.json does not exist in main. "
+                "Use [Register] for new services."
+            )
+
+    if operation == "add-ca" and not cert_files:
+        result["warnings"].append("[AddCA] operation but no cert files changed")
+    if operation == "remove-ca" and not cert_files:
+        result["warnings"].append("[RemoveCA] operation but no cert files changed")
+
+    return result
+
+
 # ─── Report Generation ──────────────────────────────────────────────────────
 
 
@@ -394,6 +485,7 @@ def generate_report(
     svc_results: list[dict],
     sig_results: list[dict],
     immutable_results: list[dict],
+    op_results: list[dict],
     scope_errors: list[str],
     title_errors: list[str],
 ) -> str:
@@ -401,7 +493,7 @@ def generate_report(
     all_errors = list(scope_errors) + list(title_errors)
     all_warnings = []
 
-    for results in [cert_results, svc_results, sig_results, immutable_results]:
+    for results in [cert_results, svc_results, sig_results, immutable_results, op_results]:
         for r in results:
             all_errors.extend(r.get("errors", []))
             all_warnings.extend(r.get("warnings", []))
@@ -430,7 +522,6 @@ def generate_report(
             report += f"- ❌ {e}\n"
     report += "\n"
 
-    # Certificates table
     if cert_results:
         report += f"### Certificates ({len(cert_results)} validated)\n"
         report += "| File | Subject | Algorithm | Expires | Hash |\n"
@@ -448,7 +539,6 @@ def generate_report(
             report += f"| {icon} `{fname}` | {subject} | {alg} | {exp} | {hash_ok} |\n"
         report += "\n"
 
-    # service.json
     for sr in svc_results:
         report += "### service.json\n"
         if not sr["errors"]:
@@ -461,7 +551,6 @@ def generate_report(
             report += f"- ⚠️ {w}\n"
         report += "\n"
 
-    # Signature verification
     for sigr in sig_results:
         report += "### Admin Signature\n"
         if sigr.get("verified"):
@@ -476,12 +565,20 @@ def generate_report(
                 report += f"- ⚠️ {w}\n"
         report += "\n"
 
-    # Immutable fields
     for imr in immutable_results:
         if imr.get("errors"):
             report += "### Immutable Fields\n"
             for e in imr["errors"]:
                 report += f"- ❌ {e}\n"
+            report += "\n"
+
+    for opr in op_results:
+        if opr.get("errors") or opr.get("warnings"):
+            report += "### Operation Consistency\n"
+            for e in opr.get("errors", []):
+                report += f"- ❌ {e}\n"
+            for w in opr.get("warnings", []):
+                report += f"- ⚠️ {w}\n"
             report += "\n"
 
     if not all_errors and not all_warnings:
@@ -526,8 +623,8 @@ def main():
     svc_results = []
     sig_results = []
     immutable_results = []
+    op_results = []
 
-    # Validate each service directory
     for sdir in service_dirs:
         sdir_path = Path(sdir)
 
@@ -548,18 +645,23 @@ def main():
             })
 
         # Layer 5: Signature
-        sig_results.append(validate_signature(sdir_path))
+        sig_results.append(validate_signature(sdir_path, operation))
 
-        # Layer 6: Immutable fields (only for updates)
+        # Layer 6: Immutable fields
         if operation in ("update", "add-ca", "remove-ca"):
             immutable_results.append(
                 validate_immutable_fields(sdir_path, args.base_ref)
             )
 
-    # Generate report
+        # Layer 7: Operation consistency
+        op_results.append(
+            validate_operation_consistency(operation, changed, sdir, args.base_ref)
+        )
+
     report = generate_report(
         service_dirs, operation,
-        cert_results, svc_results, sig_results, immutable_results,
+        cert_results, svc_results, sig_results,
+        immutable_results, op_results,
         scope_errors, title_errors,
     )
 
@@ -568,7 +670,7 @@ def main():
 
     has_errors = scope_errors or title_errors or any(
         e
-        for results in [cert_results, svc_results, sig_results, immutable_results]
+        for results in [cert_results, svc_results, sig_results, immutable_results, op_results]
         for r in results
         for e in r.get("errors", [])
     )
