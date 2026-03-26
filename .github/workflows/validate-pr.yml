@@ -1,0 +1,155 @@
+name: Validate Service PR
+
+# Security: Use pull_request_target to run validator code from the base branch
+# (main), not from the PR branch. This prevents a malicious PR from modifying
+# validate.py to execute arbitrary code with write-capable credentials.
+on:
+  pull_request_target:
+    paths: ['services/**']
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  validate:
+    name: Validate CA Registry Data
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout base branch (trusted code)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+          fetch-depth: 0
+
+      - name: Fetch PR head for diff
+        run: |
+          git fetch origin pull/${{ github.event.pull_request.number }}/head:pr-head
+          git checkout pr-head -- services/
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Get changed service files
+        id: changes
+        run: |
+          FILES=$(git diff --name-only origin/${{ github.base_ref }}...pr-head -- services/)
+          if [ -z "$FILES" ]; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No service file changes detected"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "files<<EOF" >> $GITHUB_OUTPUT
+            echo "$FILES" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            echo "Changed files:"
+            echo "$FILES"
+          fi
+
+      - name: Run validation
+        if: steps.changes.outputs.has_changes == 'true'
+        id: validate
+        run: |
+          python scripts/validate.py \
+            --changed-files "${{ steps.changes.outputs.files }}" \
+            --pr-title "${{ github.event.pull_request.title }}" \
+            --base-ref "origin/${{ github.base_ref }}" \
+            --output report.md
+
+      - name: Post validation report
+        if: steps.changes.outputs.has_changes == 'true' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (!fs.existsSync('report.md')) {
+              // Validation crashed without producing a report — post failure
+              const fallback = '## CA Registry Validation ❌\n\n' +
+                'Validation script failed to produce a report. Check workflow logs.';
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: fallback,
+              });
+              return;
+            }
+            const report = fs.readFileSync('report.md', 'utf8');
+
+            // Find existing bot comment to update (avoid duplicates)
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const botComment = comments.find(
+              c => c.user.type === 'Bot' && c.body.includes('CA Registry Validation')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: report,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: report,
+              });
+            }
+
+      - name: Check validation result
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          # Fail if validate.py exited non-zero OR report contains errors
+          if [[ ! -f report.md ]]; then
+            echo "::error::Validation failed — no report generated"
+            exit 1
+          fi
+          if grep -q "❌" report.md; then
+            echo "::error::Validation failed — see PR comment for details"
+            exit 1
+          fi
+
+  auto-merge:
+    name: Auto-merge Service PR
+    needs: validate
+    runs-on: ubuntu-latest
+    if: success()
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Auto-merge PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+
+            // Only auto-merge if PR title matches service operations
+            const serviceOps = /^\[(Register|AddCA|RemoveCA|Update)\]/;
+            if (!serviceOps.test(pr.title)) {
+              console.log(`Skipping auto-merge: PR title "${pr.title}" is not a service operation`);
+              return;
+            }
+
+            console.log(`Validation passed. Auto-merging PR #${pr.number}...`);
+            try {
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                merge_method: 'squash',
+              });
+              console.log('PR merged successfully');
+            } catch (error) {
+              console.log(`Auto-merge skipped: ${error.message}`);
+            }
