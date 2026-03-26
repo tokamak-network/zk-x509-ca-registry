@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "CA Registry Service",
+  "description": "Service metadata and CA information for zk-x509-ca-registry",
+  "type": "object",
+  "required": ["name", "description", "admin", "created_at", "updated_at", "cas"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "Service display name"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "Service description"
+    },
+    "admin": {
+      "type": "string",
+      "pattern": "^0x[0-9a-fA-F]{40}$",
+      "description": "Ethereum address of the service admin"
+    },
+    "website": {
+      "type": "string",
+      "description": "Service website URL"
+    },
+    "created_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "description": "Service creation date (YYYY-MM-DD)"
+    },
+    "updated_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "description": "Last update date (YYYY-MM-DD)"
+    },
+    "cas": {
+      "type": "object",
+      "description": "CA certificates keyed by SHA-256(SPKI) hash",
+      "patternProperties": {
+        "^0x[0-9a-f]{64}$": {
+          "type": "object",
+          "required": ["name"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "CA display name"
+            },
+            "description": {
+              "type": "string",
+              "description": "CA description"
+            },
+            "issue_url": {
+              "type": "string",
+              "description": "URL to obtain a certificate from this CA"
+            },
+            "instructions": {
+              "type": "string",
+              "description": "Instructions for obtaining a certificate"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

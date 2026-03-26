@@ -1,0 +1,115 @@
+name: Validate PR
+
+on:
+  pull_request:
+    paths: ['services/**']
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Get changed files
+        id: changes
+        run: |
+          FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- services/)
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "Changed files:"
+          echo "$FILES"
+
+      - name: Run validation
+        id: validate
+        run: |
+          python scripts/validate.py \
+            --changed-files "${{ steps.changes.outputs.files }}" \
+            --pr-title "${{ github.event.pull_request.title }}" \
+            --base-ref "origin/${{ github.base_ref }}" \
+            --output report.md
+        continue-on-error: true
+
+      - name: Post validation report
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (!fs.existsSync('report.md')) {
+              console.log('No report generated');
+              return;
+            }
+            const report = fs.readFileSync('report.md', 'utf8');
+
+            // Find existing bot comment to update (avoid duplicates)
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const botComment = comments.find(
+              c => c.user.type === 'Bot' && c.body.includes('CA Registry Validation')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: report,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: report,
+              });
+            }
+
+      - name: Check validation result
+        if: always()
+        run: |
+          if [[ -f report.md ]] && grep -q "❌" report.md; then
+            echo "::error::Validation failed — see PR comment for details"
+            exit 1
+          fi
+
+  auto-merge:
+    needs: validate
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Auto-merge PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            console.log(`Validation passed. Auto-merging PR #${pr.number}...`);
+
+            try {
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                merge_method: 'squash',
+              });
+              console.log('PR merged successfully');
+            } catch (error) {
+              console.log(`Auto-merge skipped: ${error.message}`);
+              // Not a failure — PR may require additional approvals
+            }
