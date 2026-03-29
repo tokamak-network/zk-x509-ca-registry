@@ -1,0 +1,117 @@
+{
+  "name": "0xA22D78bc37cE77FeE1c44F0C2C0d2524318570c3",
+  "description": "0xA22D78bc37cE77FeE1c44F0C2C0d2524318570c3",
+  "admin": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+  "created_at": "2026-03-29",
+  "updated_at": "2026-03-29",
+  "cas": {
+    "0x499d9520019a54c7be0e0342a14b083596606d8a0c4c1080ad1a4c1035ed5ada": {
+      "name": "CrossCert Device CA",
+      "description": "RSA-2048 CA certificate from KR (issuer: KISA RootCA Dev 1)",
+      "issue_url": "",
+      "instructions": ""
+    },
+    "0x9822493c22a78b4170f5bc08a20d4d1fce78bb1af136bbfab2e031353b065e44": {
+      "name": "CrossCertCA4",
+      "description": "RSA-2048 CA certificate from KR (issuer: KISA RootCA 4)",
+      "issue_url": "",
+      "instructions": ""
+    },
+    "0x897515b416af00d614614b582350af5a7c37a8a4585df7ea348e367663cdd100": {
+      "name": "CrossCertOCSP3",
+      "description": "RSA-2048 CA certificate from KR (issuer: KISA RootCA 4)",
+      "issue_url": "",
+      "instructions": ""
+    },
+    "0xe76a7abe65ca6f9b1218d9b18101bb1cd5991c043e7f55f61be19e39ecbdbbec": {
+      "name": "CrossCertTSA3",
+      "description": "RSA-2048 CA certificate from KR (issuer: KISA RootCA 4)",
+      "issue_url": "",
+      "instructions": ""
+    },
+    "0xc746127c5f6b529ce9e2948efd9465444089319acf03f34d0bf37eadc77db22f": {
+      "name": "KISA RootCA 1",
+      "description": "RSA-2048 CA certificate from KR",
+      "issue_url": "",
+      "instructions": ""
+    },
+    "0xf3f4a1dcd4c9e42b48c0fec677bf98b94c310f06f38abbb58c33a7c14fd1dcfa": {
+      "name": "KISA RootCA 4",
+      "description": "RSA-2048 CA certificate from KR",
+      "issue_url": "",
+      "instructions": ""
+    },
+    "0xcc85f1c5cffe334236d2ffd374d48596eb86a4d61aeae4b28ce04cdb0d74c98e": {
+      "name": "signGATE CA6",
+      "description": "RSA-2048 CA certificate from KR (issuer: KISA RootCA 4)",
+      "issue_url": "",
+      "instructions": ""
+    },
+    "0xa3396245f1a268745cc22a756db70c98e875670530dce4a3f60d338e134a4dea": {
+      "name": "SignGATE Device CA-0101",
+      "description": "RSA-2048 CA certificate from KR (issuer: KISA RootCA Dev 1)",
+      "issue_url": "",
+      "instructions": ""
+    },
+    "0xb78eff4a6bb95b39ddc855c8fd46a6bc52fd35f67c27b2511d320dbba91d7b60": {
+      "name": "SignGATE ECDSA CA",
+      "description": "1.2.840.10045.2.1 CA certificate from KR (issuer: KISA RootCA Dev 2)",
+      "issue_url": "",
+      "instructions": ""
+    },
+    "0xae866a0d5acb45bc815c318924c012ea4088949b822863ffc1e3cab4bd1b40f6": {
+      "name": "SignGATEOCSP05",
+      "description": "RSA-2048 CA certificate from KR (issuer: KISA RootCA 4)",
+      "issue_url": "",
+      "instructions": ""
+    },
+    "0x72a009ba2bbe1b1adccb4f96fe94af73c461a39b763ce840f4ba8a6e41c6fb21": {
+      "name": "SignGATETSA05",
+      "description": "RSA-2048 CA certificate from KR (issuer: KISA RootCA 4)",
+      "issue_url": "",
+      "instructions": ""
+    },
+    "0x69a958c28f5792bafcaeb163c7c227c3631babf4b4263f8adf275c0abba9f4a9": {
+      "name": "SignGATETSA06",
+      "description": "RSA-2048 CA certificate from KR (issuer: KISA RootCA 4)",
+      "issue_url": "",
+      "instructions": ""
+    },
+    "0x2fcd56a8a6b7b9e910251583bb513cd9469570fb4519c462804f34a17c2d0425": {
+      "name": "SignKorea CA3",
+      "description": "RSA-2048 CA certificate from KR (issuer: KISA RootCA 4)",
+      "issue_url": "",
+      "instructions": ""
+    },
+    "0x4860fe93288ca3f6e038693400c0df36ce7c079d389699cdca9839035e76825a": {
+      "name": "SignKorea CA4",
+      "description": "RSA-2048 CA certificate from KR (issuer: KISA RootCA 4)",
+      "issue_url": "",
+      "instructions": ""
+    },
+    "0xf4afcbbc8387a086891c5e55b1dde90ba3120ffc49d041c34cba9f59fda1c5f3": {
+      "name": "TradeSignCA4",
+      "description": "RSA-2048 CA certificate from KR (issuer: KISA RootCA 4)",
+      "issue_url": "",
+      "instructions": ""
+    },
+    "0x0d3a55d326f67d012ead0fcf88ef38bfcedfe48a6a2b4280ad5fad2163573018": {
+      "name": "TradeSignOCSP3",
+      "description": "RSA-2048 CA certificate from KR (issuer: KISA RootCA 4)",
+      "issue_url": "",
+      "instructions": ""
+    },
+    "0x0309ec44639927c02a09efe5ba6c050426724a40e3948a39b730f3e1f36b22a6": {
+      "name": "TradeSignOCSP4",
+      "description": "RSA-2048 CA certificate from KR (issuer: KISA RootCA 4)",
+      "issue_url": "",
+      "instructions": ""
+    },
+    "0x28a2f0e0de15a5182a9cb4ac14cc8e3146fa1adbf0912c7e3131b3cee53499ab": {
+      "name": "yessignCA Class 3",
+      "description": "RSA-2048 CA certificate from kr (issuer: KISA RootCA 4)",
+      "issue_url": "",
+      "instructions": ""
+    }
+  }
+}
