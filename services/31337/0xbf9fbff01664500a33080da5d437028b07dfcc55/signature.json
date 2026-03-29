@@ -1,0 +1,8 @@
+{
+  "admin": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+  "operation": "add-ca",
+  "timestamp": 1774773423,
+  "signature": "0x067c842c2e862e184c92d79b6b521de12b70f36b17ff1782aadff6e43f1170dc34d5620e93a3d5a6e587b5470dd2b95644cc932821db9a37d8c397237acdb68f1b",
+  "chain_id": "31337",
+  "registry": "0xbf9fbff01664500a33080da5d437028b07dfcc55"
+}
