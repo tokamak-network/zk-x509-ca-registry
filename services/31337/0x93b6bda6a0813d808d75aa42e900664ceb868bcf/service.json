@@ -1,0 +1,12 @@
+{
+  "name": "Test Service",
+  "description": "",
+  "admin": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+  "created_at": "2026-03-29",
+  "updated_at": "2026-03-29",
+  "cas": {
+    "0x499d9520019a54c7be0e0342a14b083596606d8a0c4c1080ad1a4c1035ed5ada": {
+      "name": "Test CA"
+    }
+  }
+}
