@@ -206,10 +206,6 @@ def cmd_add_ca(args):
     ca_entry = {"name": args.name}
     if args.description:
         ca_entry["description"] = args.description
-    if args.issue_url:
-        ca_entry["issue_url"] = args.issue_url
-    if args.instructions:
-        ca_entry["instructions"] = args.instructions
 
     service["cas"][spki_hash] = ca_entry
     service["updated_at"] = date.today().isoformat()
@@ -516,8 +512,6 @@ def main():
     p_add.add_argument("--cert", required=True, help="Path to CA certificate (DER format)")
     p_add.add_argument("--name", required=True, help="CA display name")
     p_add.add_argument("--description", help="CA description")
-    p_add.add_argument("--issue-url", help="URL to obtain a certificate")
-    p_add.add_argument("--instructions", help="Instructions for users")
 
     p_rm = subparsers.add_parser("remove-ca", help="Remove a CA certificate")
     p_rm.add_argument("--chain-id", required=True, help="Chain ID")

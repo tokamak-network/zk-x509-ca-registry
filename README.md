@@ -47,9 +47,7 @@ Security: This repository is **untrusted**. The prover always verifies that `SHA
   "cas": {
     "0x28a2f0e0...abcd1234": {
       "name": "yessignCA Class 3",
-      "description": "Korean banking certificate CA issued by KFTC",
-      "issue_url": "https://www.yessign.or.kr",
-      "instructions": "Visit your bank branch to obtain an NPKI certificate."
+      "description": "Korean banking certificate CA issued by KFTC"
     }
   }
 }
@@ -97,9 +95,7 @@ python scripts/admin.py add-ca \
   --registry 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 \
   --cert /path/to/ca-certificate.der \
   --name "yessignCA Class 3" \
-  --description "Korean banking CA issued by KFTC" \
-  --issue-url "https://www.yessign.or.kr" \
-  --instructions "Visit your bank branch to obtain a certificate."
+  --description "Korean banking CA issued by KFTC"
 ```
 
 This command automatically:
@@ -285,7 +281,7 @@ git push origin remove-ca/old-ca
 
 ```bash
 git checkout -b update/description
-# Edit service.json (name, description, website, CA instructions, etc.)
+# Edit service.json (name, description, website, etc.)
 # Note: admin and created_at are immutable and cannot be changed
 
 python scripts/admin.py sign \

@@ -51,14 +51,6 @@
             "description": {
               "type": "string",
               "description": "CA description"
-            },
-            "issue_url": {
-              "type": "string",
-              "description": "URL to obtain a certificate from this CA"
-            },
-            "instructions": {
-              "type": "string",
-              "description": "Instructions for obtaining a certificate"
             }
           },
           "additionalProperties": false
