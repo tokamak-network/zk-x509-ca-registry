@@ -1,8 +1,8 @@
 {
-  "message": "zk-x509-ca-registry\nChain ID: 31337\nRegistry: 0x93b6bda6a0813d808d75aa42e900664ceb868bcf\nAdmin: 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266\nOperation: add-ca\nTimestamp: 1774852130",
-  "signature": "0x76b1d5cb092cf560c5b659177d9900d3bf6bdf8690c6d8c7369f273690f4665303801fe0cc632503f05a7868837e272c851cf26fb1b07b2869087814ca62e7431c",
-  "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+  "message": "zk-x509-ca-registry\nChain ID: 31337\nRegistry: 0x93b6bda6a0813d808d75aa42e900664ceb868bcf\nAdmin: 0x627306090abab3a6e1400e9345bc60c78a8bef57\nOperation: add-ca\nTimestamp: 1775000507",
+  "signature": "0x6edeadea13bdec29bfaf533aa1ea8fbe033514a8adccbf879d17a8c4df9fd35053bddeeebe50d1ff0cc5cf0e410617532dc4a4c794865598f19f103e46c752bb1c",
+  "address": "0x627306090abab3a6e1400e9345bc60c78a8bef57",
   "operation": "add-ca",
-  "timestamp": 1774852130,
-  "signed_at": "2026-03-30T06:28:50+00:00"
+  "timestamp": 1775000507,
+  "signed_at": "2026-03-31T23:41:47+00:00"
 }
