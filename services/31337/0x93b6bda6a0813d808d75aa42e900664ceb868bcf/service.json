@@ -1,9 +1,9 @@
 {
-  "name": "FirstServicePolicy_User",
-  "description": "FirstServicePolicy_User",
-  "admin": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+  "name": "Demo_DEefi",
+  "description": "Demo_DEefi",
+  "admin": "0xf93ee4cf8c6c40b329b0c0626f28333c132cf241",
   "created_at": "2026-03-30",
-  "updated_at": "2026-03-31",
+  "updated_at": "2026-04-01",
   "cas": {
     "0xe00f68aeae630729e09add3051b8a9432f3436929ae3ebb39b34e58ba94a8203": {
       "name": "Singapore NDI Intermediate CA 1 - B1",
