@@ -1,9 +1,9 @@
 {
-  "name": "Test",
-  "description": "Test",
+  "name": "Sample_DAO",
+  "description": "Sample_DAO",
   "admin": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
   "created_at": "2026-03-29",
-  "updated_at": "2026-03-29",
+  "updated_at": "2026-04-01",
   "cas": {
     "0x499d9520019a54c7be0e0342a14b083596606d8a0c4c1080ad1a4c1035ed5ada": {
       "name": "CrossCert Device CA",
@@ -72,6 +72,42 @@
     "0x28a2f0e0de15a5182a9cb4ac14cc8e3146fa1adbf0912c7e3131b3cee53499ab": {
       "name": "yessignCA Class 3",
       "description": "RSA-2048 CA certificate from kr (issuer: KISA RootCA 4)"
+    },
+    "0xe00f68aeae630729e09add3051b8a9432f3436929ae3ebb39b34e58ba94a8203": {
+      "name": "Singapore NDI Intermediate CA 1 - B1",
+      "description": "ECDSA-P384 CA certificate from SG (issuer: Singapore National Root CA - B1)"
+    },
+    "0x73380dbe5c71e1295c71396510777f717e04f36a1a21c71db787c865a2d2c1f8": {
+      "name": "Singapore NDI Intermediate CA 1 - B2",
+      "description": "ECDSA-P384 CA certificate from SG (issuer: Singapore National Root CA - B1)"
+    },
+    "0xf0eb09ff6a3a8e9443f5acca5277dfdf4733043079af517d0a0d476d1d9b28b0": {
+      "name": "Singapore NDI Intermediate CA 2 - B1",
+      "description": "ECDSA-P384 CA certificate from SG (issuer: Singapore National Root CA - B1)"
+    },
+    "0x26b0774db97cf17dda456d6be5cfab2623698865a5a9efba757897fbebe30438": {
+      "name": "Netrust CA 2-1",
+      "description": "RSA-4096 CA certificate from SG (issuer: Netrust Root CA 2)"
+    },
+    "0xc00f5f6b102f070658d04a90f198e715346428ae15200b2498e11e68c242a6f2": {
+      "name": "Netrust CA 2-2",
+      "description": "RSA-4096 CA certificate from SG (issuer: Netrust Root CA 2)"
+    },
+    "0xe8cbf40686f136be377e1586cb7421d9e6796b785e9c23a094f83ae725bfeba9": {
+      "name": "Netrust CA 3-1",
+      "description": "RSA-4096 CA certificate from SG (issuer: Netrust Root CA 3)"
+    },
+    "0x3ee6b341402851b27e64021a3023aac7c1a0d2def27d5bce5c2dbeb0b22dcc71": {
+      "name": "Netrust Root CA 2",
+      "description": "RSA-4096 CA certificate from SG"
+    },
+    "0x9ad8c4e83bf5ed7ca5d6e77ac5915d9ae5e8f99946629efc20f1fec98a11977b": {
+      "name": "Netrust Root CA 3",
+      "description": "RSA-4096 CA certificate from SG"
+    },
+    "0x13d86af287136901f37db427628e756197450a6cc16ce7fa64bdc062c6a94979": {
+      "name": "Singapore National Root CA - B1",
+      "description": "ECDSA-P384 CA certificate from SG"
     }
   }
 }
