@@ -1,0 +1,8 @@
+{
+  "message": "zk-x509-ca-registry\nChain ID: 11155111\nRegistry: 0x3cf6a96f1970053ffdf957074f988ad53d13ada3\nAdmin: 0xc1eba383d94c6021160042491a5dfaf1d82694e6\nOperation: add-ca\nTimestamp: 1780908006",
+  "signature": "0x18f4b2b1c47b04eb8e8071d8141af0f860cb9bffdc11503b4a1847416a5cc97815fb30ae9e574fe979edca2fa46457171ec22a61b94ebbca1118fae4eb4b10661b",
+  "address": "0xc1eba383d94c6021160042491a5dfaf1d82694e6",
+  "operation": "add-ca",
+  "timestamp": 1780908006,
+  "signed_at": "2026-06-08T08:40:06+00:00"
+}
